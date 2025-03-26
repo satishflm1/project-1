@@ -280,17 +280,21 @@ const Dishes = () => {
                   </div>
                   <p className="text-sm text-gray-600 mb-2">{dish.description}</p>
                   <div className="flex justify-between items-center">
-                    <span className="font-medium">${parseFloat(dish.price).toFixed(2)}</span>
-                    <button
-                      onClick={() => toggleAvailability(dish.id, dish.available)}
-                      className={`px-2 py-1 rounded text-sm ${
-                        dish.available
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {dish.available ? 'Available' : 'Unavailable'}
-                    </button>
+                    <div>
+                      <h3 className="font-medium">{dish.name}</h3>
+                      <p className="text-sm text-gray-500">{dish.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">₹{dish.price.toFixed(2)}</p>
+                      <div className="mt-2 space-x-2">
+                        <button
+                          onClick={() => handleDeleteDish(dish.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

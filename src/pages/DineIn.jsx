@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { QRCodeSVG } from 'qrcode.react';
+
+const API_BASE_URL = 'http://192.168.1.41:5000';
+const FRONTEND_BASE_URL = 'http://192.168.1.41:3000';
 
 const DineIn = () => {
   const [tables, setTables] = useState([]);
@@ -9,6 +13,7 @@ const DineIn = () => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [orderId, setOrderId] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -103,7 +108,8 @@ const DineIn = () => {
         total_amount: calculateTotal()
       };
 
-      await axios.post('http://localhost:5000/api/orders', orderData);
+      const response = await axios.post(`${API_BASE_URL}/api/orders`, orderData);
+      setOrderId(response.data.id);
       alert('Order placed successfully!');
       setCart([]);
       setSelectedTable(null);
@@ -111,6 +117,25 @@ const DineIn = () => {
     } catch (error) {
       console.error('Error placing order:', error);
       alert('Failed to place order');
+    }
+  };
+
+  const handleDownloadBill = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/orders/${orderId}/bill`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `bill-${orderId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Error generating bill:', error);
+      alert('Failed to generate bill');
     }
   };
 
@@ -139,6 +164,37 @@ const DineIn = () => {
     return (
       <div className="text-red-500 text-center p-4">
         {error}
+      </div>
+    );
+  }
+
+  if (orderId) {
+    return (
+      <div className="p-6">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md mx-auto text-center">
+          <h2 className="text-2xl font-bold mb-4">Order Placed Successfully!</h2>
+          <p className="text-gray-600 mb-6">Scan the QR code below to view your bill details</p>
+          <div className="flex justify-center mb-6">
+            <QRCodeSVG
+              value={`${FRONTEND_BASE_URL}/bill/${orderId}`}
+              size={200}
+              level="H"
+              includeMargin={true}
+            />
+          </div>
+          <button
+            onClick={handleDownloadBill}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mb-4"
+          >
+            Download Bill
+          </button>
+          <button
+            onClick={() => setOrderId(null)}
+            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+          >
+            Place New Order
+          </button>
+        </div>
       </div>
     );
   }
@@ -194,16 +250,21 @@ const DineIn = () => {
                       {dishes
                         .filter(dish => dish.category_id === category.id && dish.available)
                         .map(dish => (
-                          <button
-                            key={dish.id}
-                            onClick={() => addToCart(dish)}
-                            className="text-left p-2 border rounded hover:bg-gray-50"
-                          >
-                            <div className="font-medium">{dish.name}</div>
-                            <div className="text-sm text-gray-500">
-                              ${parseFloat(dish.price).toFixed(2)}
+                          <div key={dish.id} className="flex justify-between items-center">
+                            <div>
+                              <h3 className="font-medium">{dish.name}</h3>
+                              <p className="text-sm text-gray-500">{dish.description}</p>
                             </div>
-                          </button>
+                            <div className="text-right">
+                              <p className="font-medium">₹{Number(dish.price).toFixed(2)}</p>
+                              <button
+                                onClick={() => addToCart(dish)}
+                                className="mt-1 text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                              >
+                                Add to Cart
+                              </button>
+                            </div>
+                          </div>
                         ))}
                     </div>
                   </div>
@@ -224,24 +285,28 @@ const DineIn = () => {
               <h2 className="text-xl font-semibold mb-4">Your Order - Table {selectedTable.number}</h2>
               <div className="space-y-4">
                 {cart.map(item => (
-                  <div key={item.id} className="flex items-center justify-between">
+                  <div key={item.id} className="flex justify-between items-center">
                     <div>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-sm text-gray-500">
-                        ${parseFloat(item.price).toFixed(2)}
-                      </div>
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-sm text-gray-500">₹{Number(item.price).toFixed(2)}</p>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => updateQuantity(item.id, parseInt(e.target.value))}
-                        className="w-16 p-1 border rounded"
-                      />
                       <button
-                        onClick={() => removeFromCart(item.id)}
-                        className="text-red-500 hover:text-red-700"
+                        onClick={() => updateQuantity(item.dish_id, item.quantity - 1)}
+                        className="text-gray-600 hover:text-gray-900"
+                      >
+                        -
+                      </button>
+                      <span>{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.dish_id, item.quantity + 1)}
+                        className="text-gray-600 hover:text-gray-900"
+                      >
+                        +
+                      </button>
+                      <button
+                        onClick={() => removeFromCart(item.dish_id)}
+                        className="text-red-600 hover:text-red-900"
                       >
                         Remove
                       </button>
@@ -253,11 +318,9 @@ const DineIn = () => {
                 )}
                 {cart.length > 0 && (
                   <>
-                    <div className="border-t pt-4">
-                      <div className="flex justify-between font-semibold">
-                        <span>Total:</span>
-                        <span>${calculateTotal().toFixed(2)}</span>
-                      </div>
+                    <div className="flex justify-between items-center pt-4 border-t">
+                      <span className="text-lg font-semibold">Total:</span>
+                      <span className="text-xl font-bold">₹{Number(calculateTotal()).toFixed(2)}</span>
                     </div>
                     <button
                       onClick={handlePlaceOrder}

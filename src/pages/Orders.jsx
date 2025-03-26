@@ -143,7 +143,7 @@ const Orders = () => {
                   {order.table_number || 'N/A'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  ${parseFloat(order.total_amount).toFixed(2)}
+                  ₹{parseFloat(order.total_amount).toFixed(2)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
